@@ -2,9 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name="turboquant",
-    version="0.2.0",
-    description="Compress Any LLM Up to 6x in One Command — GGUF, GPTQ, AWQ with Ollama/vLLM targets, HuggingFace publishing, and quality eval",
-    url="https://github.com/ShipItAndPray/turboquant",
+    version="0.1.0",
+    description="Compress Any LLM Up to 6x in One Command",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     author="TurboQuant",
