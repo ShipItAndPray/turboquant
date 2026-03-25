@@ -1,0 +1,113 @@
+name: 'TurboQuant — Quantize LLM'
+description: 'Compress any LLM up to 6x in one step. Quantize to GGUF, GPTQ, or AWQ and optionally push to HuggingFace Hub.'
+author: 'ShipItAndPray'
+branding:
+  icon: 'zap'
+  color: 'orange'
+
+inputs:
+  model:
+    description: 'HuggingFace model ID or path to local model directory'
+    required: true
+  format:
+    description: 'Output format: gguf, gptq, awq, or all'
+    required: false
+    default: 'gguf'
+  bits:
+    description: 'Quantization bits: 2, 3, 4, 5, or 8'
+    required: false
+    default: '4'
+  target:
+    description: 'Target platform: ollama, vllm, llamacpp, lmstudio (overrides format)'
+    required: false
+    default: ''
+  push-to-hub:
+    description: 'HuggingFace repo to upload quantized model (e.g. user/model-GGUF)'
+    required: false
+    default: ''
+  eval:
+    description: 'Run quality evaluation after quantization'
+    required: false
+    default: 'false'
+  output:
+    description: 'Output directory for quantized model'
+    required: false
+    default: './turboquant-output'
+  hf-token:
+    description: 'HuggingFace API token (required for --push-to-hub and gated models)'
+    required: false
+    default: ''
+
+outputs:
+  output-dir:
+    description: 'Directory containing quantized model files'
+    value: ${{ inputs.output }}
+  report:
+    description: 'Path to the JSON compression report'
+    value: ${{ inputs.output }}/turboquant-report.json
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install TurboQuant
+      shell: bash
+      run: |
+        pip install --upgrade pip
+        pip install turboquant
+        # Install requested backends
+        FORMAT="${{ inputs.format }}"
+        TARGET="${{ inputs.target }}"
+        if [ "$TARGET" = "ollama" ] || [ "$TARGET" = "llamacpp" ] || [ "$TARGET" = "lmstudio" ] || [ "$FORMAT" = "gguf" ]; then
+          pip install turboquant[gguf] || echo "Warning: GGUF backend install failed"
+        fi
+        if [ "$TARGET" = "vllm" ] || [ "$FORMAT" = "gptq" ] || [ "$FORMAT" = "all" ]; then
+          pip install turboquant[gptq] || echo "Warning: GPTQ backend install failed"
+        fi
+        if [ "$TARGET" = "vllm" ] || [ "$FORMAT" = "awq" ] || [ "$FORMAT" = "all" ]; then
+          pip install turboquant[awq] || echo "Warning: AWQ backend install failed"
+        fi
+
+    - name: Configure HuggingFace token
+      if: inputs.hf-token != ''
+      shell: bash
+      run: |
+        echo "HF_TOKEN=${{ inputs.hf-token }}" >> $GITHUB_ENV
+        huggingface-cli login --token ${{ inputs.hf-token }} --add-to-git-credential
+
+    - name: Run TurboQuant
+      shell: bash
+      run: |
+        CMD="turboquant ${{ inputs.model }}"
+        CMD="$CMD --bits ${{ inputs.bits }}"
+        CMD="$CMD --output ${{ inputs.output }}"
+
+        # Target overrides format
+        if [ -n "${{ inputs.target }}" ]; then
+          CMD="$CMD --target ${{ inputs.target }}"
+        else
+          CMD="$CMD --format ${{ inputs.format }}"
+        fi
+
+        # Optional flags
+        if [ "${{ inputs.eval }}" = "true" ]; then
+          CMD="$CMD --eval"
+        fi
+        if [ -n "${{ inputs.push-to-hub }}" ]; then
+          CMD="$CMD --push-to-hub ${{ inputs.push-to-hub }}"
+        fi
+
+        echo "Running: $CMD"
+        eval $CMD
+
+    - name: Upload artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: turboquant-output
+        path: ${{ inputs.output }}
+        retention-days: 30
