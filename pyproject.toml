@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "turboquant"
+version = "0.1.0"
+description = "Compress Any LLM Up to 6x in One Command"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+dependencies = [
+    "transformers>=4.36.0",
+    "huggingface-hub>=0.20.0",
+    "torch>=2.0.0",
+]
+
+[project.optional-dependencies]
+gguf = ["llama-cpp-python>=0.2.0"]
+gptq = ["auto-gptq>=0.7.0", "datasets>=2.14.0"]
+awq = ["autoawq>=0.2.0"]
+all = ["llama-cpp-python>=0.2.0", "auto-gptq>=0.7.0", "autoawq>=0.2.0", "datasets>=2.14.0"]
+
+[project.scripts]
+turboquant = "turboquant:main"
+
+[project.urls]
+Homepage = "https://github.com/ShipItAndPray/turboquant"
+Issues = "https://github.com/ShipItAndPray/turboquant/issues"

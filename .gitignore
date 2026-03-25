@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+*.gguf
+*.safetensors
+*.bin
+turboquant-output/
+.env
+.venv/
+venv/
