@@ -122,7 +122,7 @@ def get_model_info(model_id_or_path):
         from huggingface_hub import model_info as hf_model_info
         mi = hf_model_info(model_id_or_path)
         info["model_id"] = mi.id
-        info["size_bytes"] = sum(s.size for s in mi.siblings if s.rfilename.endswith(('.safetensors', '.bin')))
+        info["size_bytes"] = sum(s.size for s in mi.siblings if s.rfilename.endswith(('.safetensors', '.bin')) and s.size is not None)
         info["size_human"] = format_size(info["size_bytes"])
 
         # Try to get parameter count from config
@@ -131,8 +131,9 @@ def get_model_info(model_id_or_path):
         with open(config_path) as f:
             config = json.load(f)
         info["arch"] = config.get("architectures", ["unknown"])[0]
-        info["hidden_size"] = config.get("hidden_size", 0)
-        info["num_layers"] = config.get("num_hidden_layers", 0)
+        # Support both LLaMA-style and GPT-style config key names
+        info["hidden_size"] = config.get("hidden_size") or config.get("n_embd") or config.get("d_model") or 0
+        info["num_layers"] = config.get("num_hidden_layers") or config.get("n_layer") or config.get("num_layers") or 0
         info["vocab_size"] = config.get("vocab_size", 0)
 
         # Estimate parameters
@@ -144,6 +145,12 @@ def get_model_info(model_id_or_path):
             params = 12 * n * h * h + v * h
             info["params_estimate"] = params
             info["params_human"] = f"{params/1e9:.1f}B" if params > 1e9 else f"{params/1e6:.0f}M"
+
+        # If HF API didn't return file sizes, estimate from parameters
+        if not info["size_bytes"] and info.get("params_estimate"):
+            # FP16 = 2 bytes per param
+            info["size_bytes"] = info["params_estimate"] * 2
+            info["size_human"] = format_size(info["size_bytes"]) + " (estimated)"
 
         info["found"] = True
     except Exception as e:
